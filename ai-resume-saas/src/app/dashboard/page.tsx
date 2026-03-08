@@ -46,12 +46,21 @@ export default async function DashboardPage() {
                         <h1 className="text-3xl font-bold tracking-tight">Your Resumes</h1>
                         <p className="text-muted-foreground mt-1">Manage and edit your professional resumes.</p>
                     </div>
-                    <form action={createResume}>
-                        <button className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 gap-2">
-                            <PlusCircle className="h-4 w-4" />
-                            New Resume
-                        </button>
-                    </form>
+                    <div className="flex gap-3">
+                        <Link
+                            href="/builder/new"
+                            className="inline-flex h-10 items-center justify-center rounded-md bg-gradient-to-r from-cyan-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-cyan-500/20 transition-all hover:opacity-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring gap-2"
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            Create with AI
+                        </Link>
+                        <form action={createResume}>
+                            <button className="inline-flex h-10 items-center justify-center rounded-md border bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 gap-2">
+                                <PlusCircle className="h-4 w-4" />
+                                Custom Resume
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 {resumes && resumes.length > 0 ? (
