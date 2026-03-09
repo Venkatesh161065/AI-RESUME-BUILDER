@@ -55,6 +55,11 @@ export default function QuickBuilder() {
                 body: JSON.stringify(formData),
             })
 
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `Server error: ${res.statusText}`);
+            }
+
             const data = await res.json()
             const resumeData = data.resume
 

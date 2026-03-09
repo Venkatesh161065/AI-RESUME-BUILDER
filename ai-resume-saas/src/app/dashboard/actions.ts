@@ -39,5 +39,5 @@ export async function createResume() {
     }
 
     revalidatePath('/dashboard')
-    redirect(`/dashboard/editor/${data.id}`)
+    redirect(`/builder/${data.id}`)
 }

@@ -16,6 +16,18 @@ export async function generateAI(prompt: string) {
         }
     )
 
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenRouter API error:', errorText);
+        throw new Error(`OpenRouter API failed: ${response.statusText}`);
+    }
+
     const data = await response.json()
+
+    if (!data.choices || data.choices.length === 0) {
+        console.error('OpenRouter returned no choices:', data);
+        throw new Error('OpenRouter returned no content');
+    }
+
     return data.choices[0].message.content as string
 }

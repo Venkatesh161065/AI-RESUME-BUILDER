@@ -1,9 +1,9 @@
 import { generateAI } from '@/lib/openrouter'
 
 export async function POST(req: Request) {
-    const { name, title, email, phone, location, summary, projects } = await req.json()
+  const { name, title, email, phone, location, summary, projects } = await req.json()
 
-    const prompt = `
+  const prompt = `
 Create a professional ATS-optimized resume in JSON format.
 The response MUST be a valid JSON object.
 
@@ -40,13 +40,28 @@ Ensure the content is high-quality, professional, and uses strong action verbs.
 Return ONLY the JSON object.
 `
 
+  try {
     const result = await generateAI(prompt)
+    if (!result) {
+      throw new Error('No response from AI')
+    }
 
     // Clean up potential markdown code blocks from LLM response
     const jsonString = result.replace(/```json\n?|\n?```/g, '').trim()
-    const resumeData = JSON.parse(jsonString)
+
+    let resumeData;
+    try {
+      resumeData = JSON.parse(jsonString)
+    } catch (e) {
+      console.error('Failed to parse AI JSON:', jsonString);
+      throw new Error('AI returned invalid JSON format');
+    }
 
     return Response.json({
-        resume: resumeData,
+      resume: resumeData,
     })
+  } catch (error: any) {
+    console.error('AI Generation Error:', error)
+    return Response.json({ error: error.message || 'Internal server error' }, { status: 500 })
+  }
 }
