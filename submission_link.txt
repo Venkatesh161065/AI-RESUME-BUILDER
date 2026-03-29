@@ -1,0 +1,11 @@
+Project Link for Submission:
+https://frontend-84y80groq-venkatesh161065s-projects.vercel.app
+
+Local Backend:
+Note that this UI is currently connected to your local backend API (http://localhost:5000). For the frontend to load and interact fully, make sure your Node backend is running locally.
+
+SaaS Features Included:
+- Live A4 Document Preview
+- AI Resume Generation (OpenAI)
+- Firebase Auth / Razorpay Checkout
+- MongoDB Database integration
