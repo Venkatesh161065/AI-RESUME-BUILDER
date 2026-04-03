@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middlewares
 app.use(cors({
-    origin: '*', // Automatically allow frontend origins on deploy
+    origin: true, // Echo origin to allow credentials from any frontend
     credentials: true,
 }));
 app.use(express.json());
