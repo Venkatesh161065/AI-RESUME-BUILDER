@@ -18,7 +18,7 @@ const Dashboard = () => {
         
         const fetchResumes = async () => {
             try {
-                const res = await axios.get('https://ai-resume-backend-venkatesh.onrender.com/api/resume/all', {
+                const res = await axios.get('https://backend-pi-six-94.vercel.app/api/resume/all', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setResumes(res.data.resumes);

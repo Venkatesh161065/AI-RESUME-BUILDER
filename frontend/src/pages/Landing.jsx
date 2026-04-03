@@ -18,7 +18,7 @@ const Landing = () => {
                     setToken(token);
                     
                     // Sync with backend
-                    const res = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/auth/login', {}, {
+                    const res = await axios.post('https://backend-pi-six-94.vercel.app/api/auth/login', {}, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     
@@ -45,7 +45,7 @@ const Landing = () => {
             const mockToken = "mock_token_123";
             setToken(mockToken);
             try {
-                const res = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/auth/login', {}, {
+                const res = await axios.post('https://backend-pi-six-94.vercel.app/api/auth/login', {}, {
                     headers: { Authorization: `Bearer ${mockToken}` }
                 });
                 

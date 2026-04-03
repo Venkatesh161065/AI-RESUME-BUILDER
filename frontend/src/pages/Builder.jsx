@@ -36,7 +36,7 @@ const Builder = () => {
             // we'll rely on global store, or fetch it. Let's just fetch all and find it.
             const fetchResume = async () => {
                 try {
-                    const res = await axios.get('https://ai-resume-backend-venkatesh.onrender.com/api/resume/all', {
+                    const res = await axios.get('https://backend-pi-six-94.vercel.app/api/resume/all', {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     const found = res.data.resumes.find(r => r._id === id);
