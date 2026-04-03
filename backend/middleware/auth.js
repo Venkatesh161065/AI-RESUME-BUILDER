@@ -1,4 +1,4 @@
-const admin = require('../config/firebase');
+const supabase = require('../config/supabase');
 
 const verifyToken = async (req, res, next) => {
     try {
@@ -14,15 +14,27 @@ const verifyToken = async (req, res, next) => {
             req.user = { 
                 email: "test@example.com", 
                 name: "Test User", 
-                uid: "mock_uid_123" 
+                id: "mock_uuid_123" 
             };
             return next();
         }
 
-        const decodedToken = await admin.auth().verifyIdToken(token);
+        // Verify Supabase Token
+        const { data: { user }, error } = await supabase.auth.getUser(token);
         
+        if (error || !user) {
+            console.error('Supabase Auth Token Error:', error);
+            return res.status(401).json({ error: 'Unauthorized route, invalid token' });
+        }
+
         // Attach user info to request
-        req.user = decodedToken;
+        // Supabase user object has id, email, user_metadata, etc.
+        req.user = {
+            id: user.id,
+            email: user.email,
+            name: user.user_metadata?.name || 'User'
+        };
+        
         next();
     } catch (error) {
         console.error('Auth Middleware Error:', error);

@@ -31,7 +31,7 @@ const Premium = () => {
 
         try {
             // 1. Create order on backend
-            const orderResponse = await axios.post('http://localhost:5000/api/payment/create-order', {}, {
+            const orderResponse = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/payment/create-order', {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -48,7 +48,7 @@ const Premium = () => {
                 handler: async function (response) {
                     try {
                         // 3. Verify on backend
-                        const verifyRes = await axios.post('http://localhost:5000/api/payment/verify', {
+                        const verifyRes = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/payment/verify', {
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_payment_id: response.razorpay_payment_id,
                             razorpay_signature: response.razorpay_signature

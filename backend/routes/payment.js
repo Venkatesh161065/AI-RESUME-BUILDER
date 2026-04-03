@@ -3,7 +3,7 @@ const router = express.Router();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const { verifyToken } = require('../middleware/auth');
-const User = require('../models/User');
+const supabase = require('../config/supabase');
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || 'dummy_id',
@@ -47,12 +47,23 @@ router.post('/verify', verifyToken, async (req, res) => {
 
         if (expectedSignature === razorpay_signature) {
              // Payment successful, update user premium status
-             const user = await User.findOneAndUpdate(
-                 { email: req.user.email },
-                 { isPremium: true },
-                 { new: true }
-             );
-             res.json({ success: true, message: 'Payment verified, User upgraded to Premium!' });
+             if (supabase) {
+                 const { data, error } = await supabase
+                     .from('users')
+                     .update({ isPremium: true })
+                     .eq('email', req.user.email)
+                     .select()
+                     .single();
+
+                 if (error) {
+                     console.error("Supabase Premium Update Error:", error);
+                     return res.status(500).json({ error: 'Failed to upgrade user in database' });
+                 }
+                 return res.json({ success: true, message: 'Payment verified, User upgraded to Premium!', user: data });
+             } else {
+                 return res.json({ success: true, message: 'Payment verified, (Mock User upgraded to Premium!)' });
+             }
+             
         } else {
              res.status(400).json({ success: false, error: 'Invalid signature. Payment verification failed.' });
         }

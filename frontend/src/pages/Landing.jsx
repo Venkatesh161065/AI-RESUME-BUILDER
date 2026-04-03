@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginWithGoogle } from '../firebase';
+import { supabase } from '../supabase';
 import useStore from '../store/useStore';
 import axios from 'axios';
 
@@ -8,30 +8,44 @@ const Landing = () => {
     const navigate = useNavigate();
     const { setUser, setToken, setPremiumStatus, setGenerationCount } = useStore();
 
+    useEffect(() => {
+        if (!supabase) return;
+        
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                try {
+                    const token = session.access_token;
+                    setToken(token);
+                    
+                    // Sync with backend
+                    const res = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/auth/login', {}, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    
+                    setUser(res.data.user);
+                    setPremiumStatus(res.data.user.isPremium);
+                    setGenerationCount(res.data.user.generationCount);
+                    
+                    navigate('/dashboard');
+                } catch (error) {
+                    console.error('Failed to sync with backend after Supabase login', error);
+                }
+            }
+        });
+
+        return () => {
+            if (subscription) subscription.unsubscribe();
+        };
+    }, [navigate, setToken, setUser, setPremiumStatus, setGenerationCount]);
+
     const handleLogin = async () => {
-        try {
-            const fbUser = await loginWithGoogle();
-            const token = await fbUser.getIdToken();
-            setToken(token);
-            
-            // Sync with backend
-            const res = await axios.post('http://localhost:5000/api/auth/login', {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            setUser(res.data.user);
-            setPremiumStatus(res.data.user.isPremium);
-            setGenerationCount(res.data.user.generationCount);
-            
-            navigate('/dashboard');
-        } catch (error) {
-            console.warn('Firebase login failed, using Mock User for local testing:', error);
+        if (!supabase) {
+            console.warn('Supabase not configured, mocking login');
+            // Mock login fallback
             const mockToken = "mock_token_123";
             setToken(mockToken);
-            
-            // Sync with backend using mock token
             try {
-                const res = await axios.post('http://localhost:5000/api/auth/login', {}, {
+                const res = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/auth/login', {}, {
                     headers: { Authorization: `Bearer ${mockToken}` }
                 });
                 
@@ -43,6 +57,17 @@ const Landing = () => {
             } catch (err) {
                 alert('Backend is unreachable. Is the Node server running?');
             }
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+            });
+            if (error) throw error;
+        } catch (error) {
+            console.error('Supabase login failed:', error);
+            alert('Login failed. Ensure Supabase is correctly configured in .env');
         }
     };
 

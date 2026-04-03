@@ -33,7 +33,7 @@ const ResumeForm = ({ resumeData, setResumeData, isPremium, token }) => {
     const handleGenerateAI = async () => {
         setLoadingAi(true);
         try {
-            const res = await axios.post('http://localhost:5000/api/resume/generate', resumeData, {
+            const res = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/resume/generate', resumeData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const { summary, improvedExperience } = res.data;
@@ -57,7 +57,7 @@ const ResumeForm = ({ resumeData, setResumeData, isPremium, token }) => {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const res = await axios.post('http://localhost:5000/api/resume/save', resumeData, {
+            const res = await axios.post('https://ai-resume-backend-venkatesh.onrender.com/api/resume/save', resumeData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setResumeData(res.data); // updates with _id

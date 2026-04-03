@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import useStore from '../store/useStore';
-import { auth, logout } from '../firebase';
+import { supabase } from '../supabase';
 
 const Dashboard = () => {
     const { user, token, setToken, resumes, setResumes, isPremium, setPremiumStatus } = useStore();
@@ -18,7 +18,7 @@ const Dashboard = () => {
         
         const fetchResumes = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/resume/all', {
+                const res = await axios.get('https://ai-resume-backend-venkatesh.onrender.com/api/resume/all', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setResumes(res.data.resumes);
@@ -41,7 +41,9 @@ const Dashboard = () => {
     };
 
     const handleLogout = async () => {
-        await logout();
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
         setToken(null);
         navigate('/');
     };

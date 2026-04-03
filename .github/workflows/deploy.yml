@@ -1,0 +1,37 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build Backend Docker Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: false
+        tags: ai-resume-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build Frontend Docker Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: false
+        tags: ai-resume-frontend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Add deployment steps to Render/Vercel or AWS here depending on chosen provider.

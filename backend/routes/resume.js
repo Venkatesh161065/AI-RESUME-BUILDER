@@ -2,31 +2,45 @@ const express = require('express');
 const router = express.Router();
 const { OpenAI } = require('openai');
 const { verifyToken } = require('../middleware/auth');
-const Resume = require('../models/Resume');
-const User = require('../models/User');
+const supabase = require('../config/supabase');
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || 'dummy_key',
 });
 
-// Middleware to ensure user exists in our DB based on Firebase token
+// Middleware to ensure user exists in our DB based on Supabase token
 const ensureUserExists = async (req, res, next) => {
     try {
-        const mongoose = require('mongoose');
-        if (mongoose.connection.readyState !== 1) {
-            req.dbUser = { _id: "mock_id", email: req.user.email, isPremium: false, generationCount: 0 };
+        if (!supabase) {
+            req.dbUser = { id: "mock_id", email: req.user.email, isPremium: false, generationCount: 0 };
             return next();
         }
 
-        let user = await User.findOne({ email: req.user.email });
-        if (!user) {
-            user = new User({
-                email: req.user.email,
-                name: req.user.name || 'User',
-                googleId: req.user.uid
-            });
-            await user.save();
+        let { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', req.user.email)
+            .single();
+
+        if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Error fetching user from Supabase:', fetchError);
+            return res.status(500).json({ error: 'Internal server error while syncing user' });
         }
+
+        if (!user) {
+            const { data: newUser, error: insertError } = await supabase
+                .from('users')
+                .insert([{
+                    email: req.user.email,
+                    name: req.user.name || 'User',
+                    googleId: req.user.id
+                }])
+                .select()
+                .single();
+            if (insertError) throw insertError;
+            user = newUser;
+        }
+        
         req.dbUser = user;
         next();
     } catch (error) {
@@ -40,7 +54,7 @@ router.post('/generate', verifyToken, ensureUserExists, async (req, res) => {
     try {
         const { personalInfo, education, experience, skills, targetRole } = req.body;
         
-        // Simple free tier limit check (just an example, customize as needed)
+        // Simple free tier limit check
         if (!req.dbUser.isPremium && req.dbUser.generationCount >= 1) {
             return res.status(403).json({ error: 'Free tier limit reached. Please upgrade to Premium.' });
         }
@@ -61,11 +75,25 @@ router.post('/generate', verifyToken, ensureUserExists, async (req, res) => {
         ONLY output valid JSON without markdown wrapping like \`\`\`json.
         `;
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.7,
-        });
+        let response;
+        if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'dummy_key') {
+            response = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+            });
+        } else {
+            response = {
+                choices: [{
+                    message: {
+                        content: JSON.stringify({
+                            summary: "A highly motivated and results-driven professional with experience in leading cross-functional teams and implementing scalable architectures.",
+                            improvedExperience: experience.map(exp => ({ ...exp, description: "- Optimized data pipelines using modern cloud infrastructure.\n- Enhanced user retention by collaborating tightly with product designers.\n- Spearheaded key company initiatives resulting in higher metric improvements." }))
+                        })
+                    }
+                }]
+            };
+        }
 
         // Try parsing JSON carefully
         let generatedContent;
@@ -78,8 +106,12 @@ router.post('/generate', verifyToken, ensureUserExists, async (req, res) => {
         }
 
         // Increment generation count securely
-        req.dbUser.generationCount += 1;
-        await req.dbUser.save();
+        if (supabase) {
+            await supabase
+                .from('users')
+                .update({ generationCount: req.dbUser.generationCount + 1 })
+                .eq('id', req.dbUser.id);
+        }
 
         res.json(generatedContent);
 
@@ -96,11 +128,18 @@ router.post('/improve', verifyToken, async (req, res) => {
         
         const prompt = `Rewrite the following text to be more professional, ATS-friendly, and perfect for a resume. Context: ${context}. Text to improve: "${text}". ONLY output the standard string, no extra conversational text.`;
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.7,
-        });
+        let response;
+        if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'dummy_key') {
+            response = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+            });
+        } else {
+            response = {
+                choices: [{ message: { content: "This is an improved, highly professional version of your text optimized for ATS screening algorithms." } }]
+            };
+        }
 
         res.json({ improvedText: response.choices[0].message.content.trim() });
     } catch (error) {
@@ -112,31 +151,46 @@ router.post('/improve', verifyToken, async (req, res) => {
 // Save or Update Resume
 router.post('/save', verifyToken, ensureUserExists, async (req, res) => {
     try {
-        const mongoose = require('mongoose');
-        if (mongoose.connection.readyState !== 1) {
+        if (!supabase) {
             const resumeData = req.body;
-            resumeData._id = resumeData._id || "mock_resume_" + Date.now();
+            resumeData.id = resumeData.id || "mock_uuid_" + Date.now();
             return res.json(resumeData);
         }
 
-        const { _id, ...resumeData } = req.body;
+        const { id, _id, ...resumeData } = req.body; // Remove any mongo _id
         
+        // MongoDB used _id, Supabase uses id
+        const targetId = id || _id;
         let resume;
-        if (_id) {
+
+        if (targetId) {
             // Update existing
-            resume = await Resume.findOneAndUpdate(
-                { _id, userId: req.dbUser._id },
-                resumeData,
-                { new: true }
-            );
-            if (!resume) return res.status(404).json({ error: 'Resume not found' });
+            const { data, error } = await supabase
+                .from('resumes')
+                .update({ ...resumeData })
+                .eq('id', targetId)
+                .eq('userId', req.dbUser.id)
+                .select()
+                .single();
+
+            if (error) {
+                console.error("Supabase Update Error:", error);
+                return res.status(500).json({ error: 'Resume not found or update failed' });
+            }
+            resume = data;
         } else {
             // Create new
-            resume = new Resume({
-                userId: req.dbUser._id,
-                ...resumeData
-            });
-            await resume.save();
+            const { data, error } = await supabase
+                .from('resumes')
+                .insert([{ ...resumeData, userId: req.dbUser.id }])
+                .select()
+                .single();
+
+            if (error) {
+                console.error("Supabase Insert Error:", error);
+                return res.status(500).json({ error: 'Failed to save new resume' });
+            }
+            resume = data;
         }
 
         res.json(resume);
@@ -149,14 +203,25 @@ router.post('/save', verifyToken, ensureUserExists, async (req, res) => {
 // Get all Resumes for current user
 router.get('/all', verifyToken, ensureUserExists, async (req, res) => {
     try {
-        const mongoose = require('mongoose');
-        if (mongoose.connection.readyState !== 1) {
+        if (!supabase) {
              return res.json({ resumes: [], isPremium: false, generationCount: 0 });
         }
 
-        const resumes = await Resume.find({ userId: req.dbUser._id }).sort({ updatedAt: -1 });
-        
-        res.json({ resumes, isPremium: req.dbUser.isPremium, generationCount: req.dbUser.generationCount });
+        const { data: resumes, error } = await supabase
+            .from('resumes')
+            .select('*')
+            .eq('userId', req.dbUser.id)
+            .order('updated_at', { ascending: false });
+
+        if (error) {
+            console.error("Fetch Resumes Error Supabase:", error);
+            return res.status(500).json({ error: 'Failed to fetch resumes' });
+        }
+
+        // Map 'id' to '_id' for backward compatibility with frontend if needed
+        const formattedResumes = resumes.map(r => ({ ...r, _id: r.id }));
+
+        res.json({ resumes: formattedResumes || [], isPremium: req.dbUser.isPremium, generationCount: req.dbUser.generationCount });
     } catch (error) {
          console.error("Fetch Resumes Error:", error);
          res.status(500).json({ error: 'Failed to fetch resumes' });
